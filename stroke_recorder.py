@@ -6,6 +6,8 @@ UP = 0
 DOWN = 1
 
 class StrokeRecorder:
+    CANVAS_SIZE = 84
+    SCALE = 3
     def __init__(self, output_file):
         cv2.namedWindow('render')
         cv2.setMouseCallback('render', self.on_mouse)
@@ -18,14 +20,27 @@ class StrokeRecorder:
         self.pos = (-1,-1)
         self.last_pos = (-1,-1)
         self.pen_state = -1
-        self.canvas = np.full((84,84,3), 255, dtype='uint8')
+        self.canvas = np.full((self.CANVAS_SIZE, self.CANVAS_SIZE,3), 255, dtype='uint8')
 
         # strokes
         self.strokes.clear()
 
-    def on_mouse(self, event, x, y, flags, param):
-        x = x//3
-        y = y//3
+    def on_mouse(self, event, x_render, y_render, flags, param):
+        x = x_render//self.SCALE
+        y = y_render//self.SCALE
+
+        if self.pen_state>-1:
+            # x and y relative to the last position (checkpoint)
+            delx = x - self.last_pos[0]
+            dely = y - self.last_pos[1]
+
+            # limit the diff to 5
+            delx = max(-5, min(5, delx))
+            dely = max(-5, min(5, dely))
+
+            x = self.last_pos[0] + delx
+            y = self.last_pos[1] + dely
+
         if event == cv2.EVENT_MOUSEMOVE:
             self.pos = (x,y)
         elif event == cv2.EVENT_LBUTTONDOWN:
@@ -48,15 +63,24 @@ class StrokeRecorder:
 
     def render(self):
         img = self.canvas.copy()
+
+        #draw boundary rectangle to limit the move
+        x0 = self.last_pos[0] - 6
+        y0 = self.last_pos[1] - 6
+        x1 = self.last_pos[0] + 6
+        y1 = self.last_pos[1] + 6
+        cv2.rectangle(img, (x0,y0), (x1,y1), (125,125,125), 1)
+
+
+        #draw line from last checkpoint
         cv2.line(img, self.last_pos, self.pos, (0,255,0), 1)
-        img = cv2.resize(img, (84*3, 84*3))
+        img = cv2.resize(img, (self.CANVAS_SIZE*self.SCALE, self.CANVAS_SIZE*self.SCALE))
         cv2.imshow('render', img)
     
     def next(self):
         self.out_file = open(self.out_filename, "a")
         for x,y,p in self.strokes:
             string = "{},{},{};".format(x,y,p)
-            print(string)
             self.out_file.write(string)
         self.out_file.write('\n')
         self.out_file.close()

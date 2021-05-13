@@ -20,6 +20,9 @@ class StrokeRecorder:
         self.pos = (-1,-1)
         self.last_pos = (-1,-1)
         self.pen_state = -1
+        self.stroke_boundingbox = (100, 100, -1, -1) # top, left, bottom, right
+        self.initial_pos = (-1,-1)
+        
         self.canvas = np.full((self.CANVAS_SIZE, self.CANVAS_SIZE,3), 255, dtype='uint8')
 
         # strokes
@@ -44,18 +47,32 @@ class StrokeRecorder:
         if event == cv2.EVENT_MOUSEMOVE:
             self.pos = (x,y)
         elif event == cv2.EVENT_LBUTTONDOWN:
+            self.stroke_boundingbox = (
+                min(self.stroke_boundingbox[0], y), #top
+                min(self.stroke_boundingbox[1], x), #left
+                max(self.stroke_boundingbox[2], y), #bottom
+                max(self.stroke_boundingbox[3], x)  #right
+            )
             if self.pen_state==-1:
                 self.pen_state = 0
                 self.last_pos = (x,y)
+                self.initial_pos = (x,y)
             else:
                 self.draw_stroke((x,y), 1)
                 self.last_pos = (x,y)
-                self.strokes.append((x, y, 1))
+                self.strokes.append((delx, dely, 1))
 
         elif event == cv2.EVENT_RBUTTONDOWN:
+            self.stroke_boundingbox = (
+                min(self.stroke_boundingbox[0], y), #top
+                min(self.stroke_boundingbox[1], x), #left
+                max(self.stroke_boundingbox[2], y), #bottom
+                max(self.stroke_boundingbox[3], x)  #right
+            )
+
             self.draw_stroke((x,y), 0)
             self.last_pos = (x,y)
-            self.strokes.append((x, y, 0))
+            self.strokes.append((delx, dely, 0))
 
     def draw_stroke(self, pos, pen_state):
         color = (255,0,0) if pen_state==1 else (0,0,255)
@@ -78,12 +95,19 @@ class StrokeRecorder:
         cv2.imshow('render', img)
     
     def next(self):
-        self.out_file = open(self.out_filename, "a")
-        for x,y,p in self.strokes:
-            string = "{},{},{};".format(x,y,p)
+        if(self.pen_state!=-1):
+            self.out_file = open(self.out_filename, "a")
+            string =  '{},{},{},{};'.format(
+                self.initial_pos[0], self.initial_pos[1],
+                self.stroke_boundingbox[2] - self.stroke_boundingbox[0],
+                self.stroke_boundingbox[3] - self.stroke_boundingbox[1]
+            )
             self.out_file.write(string)
-        self.out_file.write('\n')
-        self.out_file.close()
+            for x,y,p in self.strokes:
+                string = "{},{},{};".format(x,y,p)
+                self.out_file.write(string)
+            self.out_file.write('\n')
+            self.out_file.close()
 
         self.reset()
 

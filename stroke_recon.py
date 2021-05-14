@@ -2,12 +2,15 @@ import cv2
 import numpy as np
 import sys
 
+from numpy.lib.index_tricks import _fill_diagonal_dispatcher
+
 UP = 0
 DOWN = 1
 
 class StrokeRecon:
     CANVAS_SIZE = 84
     SCALE = 3
+
     def __init__(self, input_file):
         cv2.namedWindow('render')
         self.input_filename = input_file
@@ -16,6 +19,7 @@ class StrokeRecon:
             self.lines = in_f.readlines()
 
         self.index = -1
+        self.length = len(self.lines) - 1
         self.reset()
 
     def reset(self):
@@ -27,7 +31,12 @@ class StrokeRecon:
         data = line.strip('\n').split(';')
         print(line, data)
         boundary = tuple(int(x) for x in data[0].split(','))
-        self.last_pos = boundary[:2]
+        init_pos = boundary[:2]
+        top, left, bottom, right = boundary[2:] # top, left, bottom, right
+        self.last_pos = (
+            np.random.randint(init_pos[0] - left, self.CANVAS_SIZE - (right-init_pos[0])),
+            np.random.randint(init_pos[1] - top, self.CANVAS_SIZE - (bottom-init_pos[1]))
+        )
         for d in data[1:-1]:
             print(d)
             d = d.split(',')
@@ -48,8 +57,11 @@ class StrokeRecon:
     
     def next(self):
         self.index+=1
+        if self.index == self.length:
+            return False
         self.reset()
         self.recon()
+        return True
 
 
     def __del__(self):
@@ -62,11 +74,9 @@ if __name__=='__main__':
 
     sr = StrokeRecon(in_file)
 
-    while True:
+    while sr.next():
         sr.render()
         c = cv2.waitKey(0)
         if c == ord('x'):
-            sr.next()
             break
-        elif c==32:
-            sr.next()
+    cv2.waitKey(0)

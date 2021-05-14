@@ -97,10 +97,10 @@ class StrokeRecorder:
     def next(self):
         if(self.pen_state!=-1):
             self.out_file = open(self.out_filename, "a")
-            string =  '{},{},{},{};'.format(
+            string =  '{},{},{},{},{},{};'.format(
                 self.initial_pos[0], self.initial_pos[1],
-                self.stroke_boundingbox[2] - self.stroke_boundingbox[0],
-                self.stroke_boundingbox[3] - self.stroke_boundingbox[1]
+                self.stroke_boundingbox[0], self.stroke_boundingbox[1],
+                self.stroke_boundingbox[2], self.stroke_boundingbox[3]
             )
             self.out_file.write(string)
             for x,y,p in self.strokes:
